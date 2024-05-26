@@ -10,8 +10,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 class MandelbrotSetVulkan{
     private:
-        uint32_t X = 800;
-        uint32_t Y = 600;
+        uint32_t X = 1920;
+        uint32_t Y = 1080;
         float m_currentOffsets[2];
         float m_currentScales[2];
         uint32_t m_currentIterations = 10000;
@@ -72,7 +72,7 @@ class MandelbrotSetVulkan{
             createInfo.enabledExtensionCount = extensions.size();
             createInfo.ppEnabledExtensionNames = extensions.data();
             std::vector<const char*> layers = {
-                "VK_LAYER_KHRONOS_validation"
+                //"VK_LAYER_KHRONOS_validation"
             };
             createInfo.enabledLayerCount = layers.size();
             createInfo.ppEnabledLayerNames = layers.data();
@@ -208,19 +208,13 @@ class MandelbrotSetVulkan{
             vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
             inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
             inputAssembly.primitiveRestartEnable = VK_FALSE;
-            vk::Viewport viewport{};
-            viewport.x = 0.0f;
-            viewport.y = 0.0f;
-            viewport.width = X;
-            viewport.height = Y;
-            vk::Rect2D scissor{};
-            scissor.offset = vk::Offset2D{0, 0};
-            scissor.extent = vk::Extent2D{X, Y};
-            vk::PipelineViewportStateCreateInfo viewportState{};
-            viewportState.viewportCount = 1;
-            viewportState.pViewports = &viewport;
-            viewportState.scissorCount = 1;
-            viewportState.pScissors = &scissor;
+            std::vector<vk::DynamicState> dynamicStates = {
+                vk::DynamicState::eViewport,
+                vk::DynamicState::eScissor
+            };
+            vk::PipelineDynamicStateCreateInfo dynamicState{};
+            dynamicState.dynamicStateCount = dynamicStates.size();
+            dynamicState.pDynamicStates = dynamicStates.data();
             vk::PipelineRasterizationStateCreateInfo rasterizer{};
             rasterizer.depthClampEnable = VK_FALSE;
             rasterizer.rasterizerDiscardEnable = VK_FALSE;
@@ -244,10 +238,10 @@ class MandelbrotSetVulkan{
             pipelineInfo.pStages = shaderStages;
             pipelineInfo.pVertexInputState = &vertexInputInfo;
             pipelineInfo.pInputAssemblyState = &inputAssembly;
-            pipelineInfo.pViewportState = &viewportState;
             pipelineInfo.pRasterizationState = &rasterizer;
             pipelineInfo.pMultisampleState = &multisampling;
             pipelineInfo.pColorBlendState = &colorBlending;
+            pipelineInfo.pDynamicState = &dynamicState;
             pipelineInfo.layout = m_pipelineLayout;
             pipelineInfo.renderPass = m_renderPass;
             m_pipeline = m_device.createGraphicsPipeline(nullptr, pipelineInfo).value;
@@ -354,7 +348,7 @@ class MandelbrotSetVulkan{
             renderPassInfo.framebuffer = m_framebuffers[imageIndex];
             renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
             renderPassInfo.renderArea.extent = vk::Extent2D{X, Y};
-            vk::ClearValue clearColor = vk::ClearColorValue(std::array<float, 4>{1.0f, 0.0f, 0.0f, 1.0f});
+            vk::ClearValue clearColor = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
             renderPassInfo.clearValueCount = 1;
             renderPassInfo.pClearValues = &clearColor;
             vk::WriteDescriptorSet writeDescriptorSet{};
@@ -374,6 +368,8 @@ class MandelbrotSetVulkan{
             std::memcpy(charPtr + sizeof(float)*4, &m_currentIterations, sizeof(uint32_t));
             m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
             m_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+            m_commandBuffer.setViewport(0, vk::Viewport{0.0f, 0.0f, float(X), float(Y), 0.0f, 1.0f});
+            m_commandBuffer.setScissor(0, vk::Rect2D{vk::Offset2D{0, 0}, vk::Extent2D{X, Y}});
             m_commandBuffer.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, 1, &writeDescriptorSet);
             m_commandBuffer.draw(6, 1, 0, 0);
             m_commandBuffer.endRenderPass();
@@ -437,6 +433,7 @@ class MandelbrotSetVulkan{
             }
             mandelbrotSetVulkan->X = width;
             mandelbrotSetVulkan->Y = height;
+            mandelbrotSetVulkan->normalizeCoordinates();
             mandelbrotSetVulkan->isDirty = true;
             mandelbrotSetVulkan->recreateSwapChain();
         }
@@ -455,8 +452,7 @@ class MandelbrotSetVulkan{
             }
             m_device.destroySwapchainKHR(m_swapChain);
         }
-    public:
-        MandelbrotSetVulkan(){
+        void normalizeCoordinates(){
             if (X > Y){
                 m_currentScales[1] = 4.0f;
                 m_currentScales[0] = m_currentScales[1] * float(X) / float(Y);
@@ -468,7 +464,11 @@ class MandelbrotSetVulkan{
                 m_currentOffsets[0]= -2.0f;
                 m_currentOffsets[1]= -2.0f * float(Y) / float(X);
             }
+        }
+    public:
+        MandelbrotSetVulkan(){
             VULKAN_HPP_DEFAULT_DISPATCHER.init();
+            normalizeCoordinates();
             createWindow();
             createInstance();
             pickPhysicalDevice();
