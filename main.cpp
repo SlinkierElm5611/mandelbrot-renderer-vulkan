@@ -8,18 +8,17 @@
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-#define X 1000
-#define Y 800
-float m_currentOffsets[2] = {-2.0f, -2.0f};
-float m_currentScales[2] = {4.0f, 4.0f};
-uint32_t m_currentIterations = 10000;
-bool isDirty = true;
-bool isButtonPressed = false;
-double lastX = 0.0;
-double lastY = 0.0;
-
 class MandelbrotSetVulkan{
     private:
+        uint32_t X = 800;
+        uint32_t Y = 600;
+        float m_currentOffsets[2];
+        float m_currentScales[2];
+        uint32_t m_currentIterations = 10000;
+        bool isDirty = true;
+        bool isButtonPressed = false;
+        double lastX = 0.0;
+        double lastY = 0.0;
         GLFWwindow* m_window;
         vk::SurfaceKHR m_surface;
         vk::SwapchainKHR m_swapChain;
@@ -45,11 +44,12 @@ class MandelbrotSetVulkan{
         void createWindow(){
             glfwInit();
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
             m_window = glfwCreateWindow(X, Y, "Mandelbrot Set", nullptr, nullptr);
+            glfwSetWindowUserPointer(m_window, this);
             glfwSetScrollCallback(m_window, scrollCallback);
             glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
             glfwSetCursorPosCallback(m_window, cursorPositionCallback);
+            glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
             //glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
         void createInstance(){
@@ -394,38 +394,80 @@ class MandelbrotSetVulkan{
             presentInfo.swapchainCount = 1;
             presentInfo.pSwapchains = &m_swapChain;
             presentInfo.pImageIndices = &imageIndex;
-            m_queue.presentKHR(presentInfo);
+            vk::Result result = m_queue.presentKHR(presentInfo);
+            if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR){
+                recreateSwapChain();
+            }
             m_queue.waitIdle();
 
         };
         static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset){
+            MandelbrotSetVulkan* mandelbrotSetVulkan = reinterpret_cast<MandelbrotSetVulkan*>(glfwGetWindowUserPointer(window));
             if(yoffset > 0){
-                m_currentScales[0] /= 1.1f;
-                m_currentScales[1] /= 1.1f;
+                mandelbrotSetVulkan->m_currentScales[0] /= 1.1f;
+                mandelbrotSetVulkan->m_currentScales[1] /= 1.1f;
             }else{
-                m_currentScales[0] *= 1.1f;
-                m_currentScales[1] *= 1.1f;
+                mandelbrotSetVulkan->m_currentScales[0] *= 1.1f;
+                mandelbrotSetVulkan->m_currentScales[1] *= 1.1f;
             }
-            isDirty = true;
+            mandelbrotSetVulkan->isDirty = true;
         }
         static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
+            MandelbrotSetVulkan* mandelbrotSetVulkan = reinterpret_cast<MandelbrotSetVulkan*>(glfwGetWindowUserPointer(window));
             if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
-                isButtonPressed = true;
+                mandelbrotSetVulkan->isButtonPressed = true;
             }else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
-                isButtonPressed = false;
+                mandelbrotSetVulkan->isButtonPressed = false;
             }
         }
         static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos){
-            if(isButtonPressed){
-                m_currentOffsets[0] += (lastX-xpos) * m_currentScales[0] / X;
-                m_currentOffsets[1] += (lastY-ypos) * m_currentScales[1] / Y;
-                isDirty = true;
+            MandelbrotSetVulkan* mandelbrotSetVulkan = reinterpret_cast<MandelbrotSetVulkan*>(glfwGetWindowUserPointer(window));
+            if(mandelbrotSetVulkan->isButtonPressed){
+                mandelbrotSetVulkan->m_currentOffsets[0] += (mandelbrotSetVulkan->lastX-xpos) * mandelbrotSetVulkan->m_currentScales[0] / mandelbrotSetVulkan->X;
+                mandelbrotSetVulkan->m_currentOffsets[1] += (mandelbrotSetVulkan->lastY-ypos) * mandelbrotSetVulkan->m_currentScales[1] / mandelbrotSetVulkan->Y;
+                mandelbrotSetVulkan->isDirty = true;
             }
-            lastX = xpos;
-            lastY = ypos;
+            mandelbrotSetVulkan->lastX = xpos;
+            mandelbrotSetVulkan->lastY = ypos;
+        }
+        static void framebufferResizeCallback(GLFWwindow* window, int width, int height){
+            MandelbrotSetVulkan* mandelbrotSetVulkan = reinterpret_cast<MandelbrotSetVulkan*>(glfwGetWindowUserPointer(window));
+            if(width == 0 || height == 0){
+                return;
+            }
+            mandelbrotSetVulkan->X = width;
+            mandelbrotSetVulkan->Y = height;
+            mandelbrotSetVulkan->isDirty = true;
+            mandelbrotSetVulkan->recreateSwapChain();
+        }
+        void recreateSwapChain(){
+            m_device.waitIdle();
+            cleanupSwapChain();
+            createSwapChain();
+            getSwapChainImages();
+            createSwapChainImageViews();
+            createFrameBuffers();
+        }
+        void cleanupSwapChain(){
+            for (size_t i = 0; i < m_images.size(); i++) {
+                m_device.destroyFramebuffer(m_framebuffers[i]);
+                m_device.destroyImageView(m_imageViews[i]);
+            }
+            m_device.destroySwapchainKHR(m_swapChain);
         }
     public:
         MandelbrotSetVulkan(){
+            if (X > Y){
+                m_currentScales[1] = 4.0f;
+                m_currentScales[0] = m_currentScales[1] * float(X) / float(Y);
+                m_currentOffsets[1]= -2.0f;
+                m_currentOffsets[0]= -2.0f * float(X) / float(Y);
+            }else{
+                m_currentScales[0] = 4.0f;
+                m_currentScales[1] = m_currentScales[0] * float(Y) / float(X);
+                m_currentOffsets[0]= -2.0f;
+                m_currentOffsets[1]= -2.0f * float(Y) / float(X);
+            }
             VULKAN_HPP_DEFAULT_DISPATCHER.init();
             createWindow();
             createInstance();
@@ -451,11 +493,7 @@ class MandelbrotSetVulkan{
             m_device.unmapMemory(m_bufferMemory);
             m_device.destroyBuffer(m_buffer);
             m_device.freeMemory(m_bufferMemory);
-            for (size_t i = 0; i < m_images.size(); i++) {
-                m_device.destroyFramebuffer(m_framebuffers[i]);
-                m_device.destroyImageView(m_imageViews[i]);
-            }
-            m_device.destroySwapchainKHR(m_swapChain);
+            cleanupSwapChain();
             m_device.destroyPipeline(m_pipeline);
             m_device.destroyRenderPass(m_renderPass);
             m_device.destroyPipelineLayout(m_pipelineLayout);
