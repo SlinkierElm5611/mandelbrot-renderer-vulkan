@@ -12,13 +12,13 @@ class MandelbrotSetVulkan{
     private:
         uint32_t X = 800;
         uint32_t Y = 600;
-        double m_currentOffsets[2] = {-2.0, -2.0};
-        double m_currentScales[2] = {4.0, 4.0};
+        float m_currentOffsets[2] = {-2.0, -2.0};
+        float m_currentScales[2] = {4.0, 4.0};
         uint32_t m_currentIterations = 100;
         bool isDirty = true;
         bool isButtonPressed = false;
-        double lastX = 0.0;
-        double lastY = 0.0;
+        float lastX = 0.0;
+        float lastY = 0.0;
         GLFWwindow* m_window;
         vk::SurfaceKHR m_surface;
         vk::SwapchainKHR m_swapChain;
@@ -321,7 +321,7 @@ class MandelbrotSetVulkan{
             throw std::runtime_error("Failed to find suitable memory type");
         }
         void createBuffer(){
-            m_bufferSize = sizeof(double)*4 + sizeof(uint32_t);
+            m_bufferSize = sizeof(float)*4 + sizeof(uint32_t);
             vk::BufferCreateInfo createInfo{};
             createInfo.size = m_bufferSize;
             createInfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
@@ -364,9 +364,9 @@ class MandelbrotSetVulkan{
             bufferInfo.range = m_bufferSize;
             writeDescriptorSet.pBufferInfo = &bufferInfo;
             char* charPtr = reinterpret_cast<char*>(m_mappedBuffer);
-            std::memcpy(m_mappedBuffer, m_currentScales, sizeof(double)*2);
-            std::memcpy(charPtr + sizeof(double)*2, m_currentOffsets, sizeof(double)*2);
-            std::memcpy(charPtr + sizeof(double)*4, &m_currentIterations, sizeof(uint32_t));
+            std::memcpy(m_mappedBuffer, m_currentScales, sizeof(float)*2);
+            std::memcpy(charPtr + sizeof(float)*2, m_currentOffsets, sizeof(float)*2);
+            std::memcpy(charPtr + sizeof(float)*4, &m_currentIterations, sizeof(uint32_t));
             m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
             m_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
             m_commandBuffer.setViewport(0, vk::Viewport{0.0f, 0.0f, float(X), float(Y), 0.0f, 1.0f});
@@ -400,7 +400,7 @@ class MandelbrotSetVulkan{
         };
         static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset){
             MandelbrotSetVulkan* mandelbrotSetVulkan = reinterpret_cast<MandelbrotSetVulkan*>(glfwGetWindowUserPointer(window));
-            double zoomFactor[2] = {(1/(2*11.0f))*mandelbrotSetVulkan->m_currentScales[0], (1/(2*11.0f))*mandelbrotSetVulkan->m_currentScales[1]};
+            float zoomFactor[2] = {(1/(2*11.0f))*mandelbrotSetVulkan->m_currentScales[0], (1/(2*11.0f))*mandelbrotSetVulkan->m_currentScales[1]};
             if(yoffset > 0){
                 mandelbrotSetVulkan->m_currentOffsets[0] += zoomFactor[0];
                 mandelbrotSetVulkan->m_currentOffsets[1] += zoomFactor[1];
@@ -485,7 +485,7 @@ class MandelbrotSetVulkan{
             m_device.destroySwapchainKHR(m_swapChain);
         }
         void normalizeCoordinates(){
-            double aspectRatio = double(X) / double(Y);
+            float aspectRatio = float(X) / float(Y);
             if(aspectRatio > m_currentScales[0] / m_currentScales[1]){
                 m_currentScales[0] = m_currentScales[1] * aspectRatio;
             }else{
