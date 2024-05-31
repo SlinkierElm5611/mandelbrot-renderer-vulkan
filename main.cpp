@@ -10,8 +10,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 class MandelbrotSetVulkan{
     private:
-        uint32_t X = 1920;
-        uint32_t Y = 1080;
+        uint32_t X = 800;
+        uint32_t Y = 600;
         double m_currentOffsets[2] = {-2.0, -2.0};
         double m_currentScales[2] = {4.0, 4.0};
         uint32_t m_currentIterations = 100;
