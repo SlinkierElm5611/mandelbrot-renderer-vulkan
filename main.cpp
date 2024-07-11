@@ -5,6 +5,8 @@
 #include <fstream>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <chrono>
+#include <thread>
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
@@ -539,6 +541,7 @@ class MandelbrotSetVulkan{
                     isDirty = false;
                 }
                 glfwPollEvents();
+                std::this_thread::sleep_for(std::chrono::milliseconds(7));
             }
             m_device.waitIdle();
         }
