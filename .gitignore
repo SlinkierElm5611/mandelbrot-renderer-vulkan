@@ -13,3 +13,7 @@ _deps
 *.spv
 mandelbrot_vulkan_renderer
 .cache/*
+
+.idea
+*ninja*
+.cmake
