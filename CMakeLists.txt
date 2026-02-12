@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_custom_target(shaders
-    COMMAND glslc -o frag.spv -fshader-stage=fragment frag.glsl
-    COMMAND glslc -o vert.spv -fshader-stage=vertex vert.glsl
+    COMMAND glslc -o frag.spv -fshader-stage=fragment ${CMAKE_SOURCE_DIR}/frag.glsl
+    COMMAND glslc -o vert.spv -fshader-stage=vertex ${CMAKE_SOURCE_DIR}/vert.glsl
     DEPENDS frag.glsl vert.glsl
     BYPRODUCTS frag.spv vert.spv
     )
