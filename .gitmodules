@@ -1,0 +1,3 @@
+[submodule "external/PixelKiln"]
+	path = external/PixelKiln
+	url = https://github.com/SlinkierElm5611/PixelKiln.git

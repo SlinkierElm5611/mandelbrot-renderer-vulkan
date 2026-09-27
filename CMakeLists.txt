@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.28.3)
 
 project(mandelbrot_vulkan_renderer)
 
@@ -8,18 +8,27 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_custom_target(shaders
-    COMMAND glslc -o frag.spv -fshader-stage=fragment ${CMAKE_SOURCE_DIR}/frag.glsl
-    COMMAND glslc -o vert.spv -fshader-stage=vertex ${CMAKE_SOURCE_DIR}/vert.glsl
-    DEPENDS frag.glsl vert.glsl
-    BYPRODUCTS frag.spv vert.spv
-    )
+# Only for glslc, which compiles the shaders. Found here rather than left to PixelKiln so that Vulkan::glslc is visible
+# to pixelkiln_add_shaders when it is called from this directory.
+find_package(Vulkan REQUIRED COMPONENTS glslc)
+
+# PixelKiln (git submodule external/PixelKiln) does all of the Vulkan work. EXCLUDE_FROM_ALL skips its examples, the
+# library and GLFW are still built because the renderer links them.
+if(NOT EXISTS ${CMAKE_SOURCE_DIR}/external/PixelKiln/CMakeLists.txt)
+    message(FATAL_ERROR "external/PixelKiln is missing, run: git submodule update --init --recursive")
+endif()
+add_subdirectory(external/PixelKiln EXCLUDE_FROM_ALL)
+
+# GLFW comes from PixelKiln's own submodule when it could build it, otherwise from the system.
+if(NOT TARGET glfw)
+    find_package(glfw3 REQUIRED)
+endif()
+
 add_executable(mandelbrot_vulkan_renderer main.cpp)
 
-find_package(Vulkan REQUIRED)
+target_link_libraries(mandelbrot_vulkan_renderer PRIVATE PixelKiln glfw)
 
-find_package(glfw3 REQUIRED)
-
-add_dependencies(mandelbrot_vulkan_renderer Vulkan::Vulkan shaders glfw)
-
-target_link_libraries(mandelbrot_vulkan_renderer Vulkan::Vulkan glfw)
+# Compiled into SPIR-V headers that main.cpp embeds, so the renderer doesn't load any files at runtime.
+pixelkiln_add_shaders(mandelbrot_vulkan_renderer
+    mandelbrot.vert
+    mandelbrot.frag)
